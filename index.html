@@ -891,20 +891,25 @@ function calcular() {
      · DEBE: 1104 IVA Crédito Fiscal (IVA pagado)
      · HABER: 1101 Efectivo (pago total con IVA incluido)
      ──────────────────────────────────────────────────────────── */
-  const v1 = gv('f1'), i1 = swOn(1);
-  if (v1 > 0) {
-    p++;
-    const cf  = i1 ? v1 * IVA : 0;   /* Crédito Fiscal = base × 13% */
-    const tot = v1 + cf;               /* Total a pagar (base + IVA) */
-    const rows = [
-      { code: 1201, side: 'd', amt: v1 },
-      ...(i1 ? [{ code: 1104, side: 'd', amt: cf }] : []),  /* Solo si aplica IVA */
-      { code: 1101, side: 'c', amt: tot, ind: true },
-    ];
-    reg(rows);
-    entries.push(mkEntry(p, 'Compra de Mobiliario (al contado)', rows, i1));
-    ivaRows.push({ num:1, lbl:'Compra de Mobiliario', base:v1, cf, df:0, noIva:!i1 });
-  }
+const v1 = gv('f1'), i1 = swOn(1);
+if (v1 > 0) {
+  p++;
+  
+  // Si aplica IVA, calcularlo como porcentaje del total y restarlo
+  const cf = i1 ? v1 * IVA : 0;   /* Crédito Fiscal = base × 13% (a descontar) */
+  const base = v1 - cf;           /* Base sin IVA (total - crédito fiscal) */
+  
+  const rows = [
+    { code: 1201, side: 'd', amt: base },      /* Base sin IVA */
+    ...(i1 ? [{ code: 1104, side: 'd', amt: cf }] : []),  /* IVA a descontar */
+    { code: 1101, side: 'c', amt: v1, ind: true },        /* Total original */
+  ];
+  
+  reg(rows);
+  entries.push(mkEntry(p, 'Compra de Mobiliario (al contado)', rows, i1));
+  ivaRows.push({ num:1, lbl:'Compra de Mobiliario', base:base, cf, df:0, noIva:!i1 });
+}
+
 
   /* ─── OPERACIÓN 2: COMPRA DE MERCANCÍA (al crédito) ─────────
      Adquisición de inventario para la venta. Pago diferido.
@@ -913,20 +918,24 @@ function calcular() {
      · DEBE: 1104 IVA Crédito Fiscal
      · HABER: 2101 Cuentas por Pagar (total con IVA → deuda al proveedor)
      ──────────────────────────────────────────────────────────── */
-  const v2 = gv('f2'), i2 = swOn(2);
-  if (v2 > 0) {
-    p++;
-    const cf  = i2 ? v2 * IVA : 0;
-    const tot = v2 + cf;
-    const rows = [
-      { code: 5101, side: 'd', amt: v2 },
-      ...(i2 ? [{ code: 1104, side: 'd', amt: cf }] : []),
-      { code: 2101, side: 'c', amt: tot, ind: true },
-    ];
-    reg(rows);
-    entries.push(mkEntry(p, 'Compra de Mercancía (al crédito)', rows, i2));
-    ivaRows.push({ num:2, lbl:'Compra de Mercancía', base:v2, cf, df:0, noIva:!i2 });
-  }
+const v2 = gv('f2'), i2 = swOn(2);
+if (v2 > 0) {
+  p++;
+  
+  // Si aplica IVA, calcularlo como porcentaje del total y restarlo
+  const cf = i2 ? v2 * IVA : 0;   /* Crédito Fiscal = base × 13% (a descontar) */
+  const base = v2 - cf;           /* Base sin IVA (total - crédito fiscal) */
+  
+  const rows = [
+    { code: 5101, side: 'd', amt: base },      /* Base sin IVA */
+    ...(i2 ? [{ code: 1104, side: 'd', amt: cf }] : []),  /* IVA a descontar */
+    { code: 2101, side: 'c', amt: v2, ind: true },        /* Total original */
+  ];
+  
+  reg(rows);
+  entries.push(mkEntry(p, 'Compra de Mercancía (al crédito)', rows, i2));
+  ivaRows.push({ num:2, lbl:'Compra de Mercancía', base:base, cf, df:0, noIva:!i2 });
+}
 
   /* ─── OPERACIÓN 3: VENTA AL CONTADO ─────────────────────────
      Venta de mercancía con cobro inmediato en efectivo.
@@ -936,19 +945,24 @@ function calcular() {
      · HABER: 2102 IVA Débito Fiscal (IVA cobrado al cliente)
      ──────────────────────────────────────────────────────────── */
   const v3 = gv('f3'), i3 = swOn(3);
-  if (v3 > 0) {
-    p++;
-    const df  = i3 ? v3 * IVA : 0;   /* Débito Fiscal = base × 13% */
-    const tot = v3 + df;
-    const rows = [
-      { code: 1101, side: 'd', amt: tot },
-      { code: 4101, side: 'c', amt: v3,  ind: true },
-      ...(i3 ? [{ code: 2102, side: 'c', amt: df, ind: true }] : []),
-    ];
-    reg(rows);
-    entries.push(mkEntry(p, 'Venta al Contado (efectivo)', rows, i3));
-    ivaRows.push({ num:3, lbl:'Venta al Contado', base:v3, cf:0, df, noIva:!i3 });
-  }
+if (v3 > 0) {
+  p++;
+  
+  // Si aplica IVA, calcularlo como porcentaje del total y restarlo
+  const df = i3 ? v3 * IVA : 0;   /* Débito Fiscal = base × 13% (a descontar) */
+  const base = v3 - df;           /* Base sin IVA (total - débito fiscal) */
+  
+  const rows = [
+    { code: 1101, side: 'd', amt: v3 },                    /* Total original */
+    { code: 4101, side: 'c', amt: base, ind: true },       /* Base sin IVA */
+    ...(i3 ? [{ code: 2102, side: 'c', amt: df, ind: true }] : []),  /* IVA a descontar */
+  ];
+  
+  reg(rows);
+  entries.push(mkEntry(p, 'Venta al Contado (efectivo)', rows, i3));
+  ivaRows.push({ num:3, lbl:'Venta al Contado', base:base, cf:0, df, noIva:!i3 });
+}
+
 
   /* ─── OPERACIÓN 4: VENTA AL CRÉDITO (pagaré) ────────────────
      Venta de mercancía con cobro diferido (el cliente firma un pagaré).
@@ -958,20 +972,25 @@ function calcular() {
      · HABER: 4101 Ventas
      · HABER: 2102 IVA Débito Fiscal
      ──────────────────────────────────────────────────────────── */
-  const v4 = gv('f4'), i4 = swOn(4);
-  if (v4 > 0) {
-    p++;
-    const df  = i4 ? v4 * IVA : 0;
-    const tot = v4 + df;
-    const rows = [
-      { code: 1103, side: 'd', amt: tot },
-      { code: 4101, side: 'c', amt: v4,  ind: true },
-      ...(i4 ? [{ code: 2102, side: 'c', amt: df, ind: true }] : []),
-    ];
-    reg(rows);
-    entries.push(mkEntry(p, 'Venta al Crédito (pagaré)', rows, i4));
-    ivaRows.push({ num:4, lbl:'Venta al Crédito', base:v4, cf:0, df, noIva:!i4 });
-  }
+ const v4 = gv('f4'), i4 = swOn(4);
+if (v4 > 0) {
+  p++;
+  
+  // Si aplica IVA, calcularlo como porcentaje del total y restarlo
+  const df = i4 ? v4 * IVA : 0;   /* Débito Fiscal = base × 13% (a descontar) */
+  const base = v4 - df;           /* Base sin IVA (total - débito fiscal) */
+  
+  const rows = [
+    { code: 1103, side: 'd', amt: v4 },                    /* Total original */
+    { code: 4101, side: 'c', amt: base, ind: true },       /* Base sin IVA */
+    ...(i4 ? [{ code: 2102, side: 'c', amt: df, ind: true }] : []),  /* IVA a descontar */
+  ];
+  
+  reg(rows);
+  entries.push(mkEntry(p, 'Venta al Crédito (pagaré)', rows, i4));
+  ivaRows.push({ num:4, lbl:'Venta al Crédito', base:base, cf:0, df, noIva:!i4 });
+}
+
 
   /* ─── OPERACIÓN 5: PAGO A PROVEEDORES ───────────────────────
      Abono parcial a la deuda originada en la Operación 2.
@@ -979,17 +998,25 @@ function calcular() {
      · DEBE: 2101 Cuentas por Pagar (reduce el pasivo)
      · HABER: 1101 Efectivo (sale dinero de caja)
      ──────────────────────────────────────────────────────────── */
-  const v5 = gv('f5');
-  if (v5 > 0) {
-    p++;
-    const rows = [
-      { code: 2101, side: 'd', amt: v5 },
-      { code: 1101, side: 'c', amt: v5, ind: true },
-    ];
-    reg(rows);
-    entries.push(mkEntry(p, 'Pago a Proveedores (abono)', rows, false));
-    ivaRows.push({ num:5, lbl:'Pago a Proveedores', base:0, cf:0, df:0, noIva:true });
-  }
+  const v5 = gv('f5'), i5 = swOn(5);
+if (v5 > 0) {
+  p++;
+  
+  // Si aplica IVA, calcularlo como porcentaje del total y restarlo
+  const cf = i5 ? v5 * IVA : 0;   /* Crédito Fiscal = base × 13% (a descontar) */
+  const base = v5 - cf;           /* Base sin IVA (total - crédito fiscal) */
+  
+  const rows = [
+    { code: 2101, side: 'd', amt: base },      /* Base sin IVA (caja/bancos) */
+    ...(i5 ? [{ code: 1104, side: 'd', amt: cf }] : []),  /* IVA acreditable */
+    { code: 1101, side: 'c', amt: v5, ind: true },        /* Total original (proveedores) */
+  ];
+  
+  reg(rows);
+  entries.push(mkEntry(p, 'Pago a Proveedores (abono)', rows, i5));
+  ivaRows.push({ num:5, lbl:'Pago a Proveedores', base:base, cf, df:0, noIva:!i5 });
+}
+
 
   /* ─── OPERACIÓN 6: DEVOLUCIÓN SOBRE COMPRA ──────────────────
      Devolución de mercancía defectuosa al proveedor. REVERSO de Op.2.
@@ -1001,21 +1028,25 @@ function calcular() {
      
      En ivaRows.cf se usa valor NEGATIVO porque reduce el CF acumulado.
      ──────────────────────────────────────────────────────────── */
-  const v6 = gv('f6'), i6 = swOn(6);
-  if (v6 > 0) {
-    p++;
-    const cf  = i6 ? v6 * IVA : 0;
-    const tot = v6 + cf;
-    const rows = [
-      { code: 2101, side: 'd', amt: tot },
-      { code: 5101, side: 'c', amt: v6,  ind: true },
-      ...(i6 ? [{ code: 1104, side: 'c', amt: cf, ind: true }] : []),
-    ];
-    reg(rows);
-    entries.push(mkEntry(p, 'Devolución sobre Compra (defectos)', rows, i6));
-    /* cf negativo: esta operación REDUCE el Crédito Fiscal acumulado */
-    ivaRows.push({ num:6, lbl:'Devolución s/ Compra', base:v6, cf:-cf, df:0, noIva:!i6, dev:true });
-  }
+ const v6 = gv('f6'), i6 = swOn(6);
+if (v6 > 0) {
+  p++;
+  
+  // Si aplica IVA, calcularlo como porcentaje del total y restarlo
+  const cf = i6 ? v6 * IVA : 0;   /* Crédito Fiscal = base × 13% (a descontar) */
+  const base = v6 - cf;           /* Base sin IVA (total - crédito fiscal) */
+  
+  const rows = [
+    { code: 2101, side: 'd', amt: v6 },                    /* Total original (entrada caja) */
+    { code: 5101, side: 'c', amt: base, ind: true },       /* Base sin IVA (mercancía devuelta) */
+    ...(i6 ? [{ code: 1104, side: 'c', amt: cf, ind: true }] : []),  /* IVA reducido */
+  ];
+  
+  reg(rows);
+  entries.push(mkEntry(p, 'Devolución sobre Compra (defectos)', rows, i6));
+  /* cf negativo: esta operación REDUCE el Crédito Fiscal acumulado */
+  ivaRows.push({ num:6, lbl:'Devolución s/ Compra', base:base, cf:-cf, df:0, noIva:!i6, dev:true });
+}
 
   /* ─── OPERACIÓN 7: PAGO DE ALQUILER ─────────────────────────
      Pago de arrendamiento del local comercial con cheque.
@@ -1024,20 +1055,24 @@ function calcular() {
      · DEBE: 1104 IVA Crédito Fiscal
      · HABER: 1101 Efectivo (pago total con IVA por cheque)
      ──────────────────────────────────────────────────────────── */
-  const v7 = gv('f7'), i7 = swOn(7);
-  if (v7 > 0) {
-    p++;
-    const cf  = i7 ? v7 * IVA : 0;
-    const tot = v7 + cf;
-    const rows = [
-      { code: 5102, side: 'd', amt: v7 },
-      ...(i7 ? [{ code: 1104, side: 'd', amt: cf }] : []),
-      { code: 1101, side: 'c', amt: tot, ind: true },
-    ];
-    reg(rows);
-    entries.push(mkEntry(p, 'Pago de Alquiler (cheque)', rows, i7));
-    ivaRows.push({ num:7, lbl:'Pago de Alquiler', base:v7, cf, df:0, noIva:!i7 });
-  }
+ const v7 = gv('f7'), i7 = swOn(7);
+if (v7 > 0) {
+  p++;
+  
+  // Si aplica IVA, calcularlo como porcentaje del total y restarlo
+  const cf = i7 ? v7 * IVA : 0;   /* Crédito Fiscal = base × 13% (a descontar) */
+  const base = v7 - cf;           /* Base sin IVA (total - crédito fiscal) */
+  
+  const rows = [
+    { code: 5102, side: 'd', amt: base },      /* Base sin IVA (alquiler) */
+    ...(i7 ? [{ code: 1104, side: 'd', amt: cf }] : []),  /* IVA a descontar */
+    { code: 1101, side: 'c', amt: v7, ind: true },        /* Total original */
+  ];
+  
+  reg(rows);
+  entries.push(mkEntry(p, 'Pago de Alquiler (cheque)', rows, i7));
+  ivaRows.push({ num:7, lbl:'Pago de Alquiler', base:base, cf, df:0, noIva:!i7 });
+}
 
   /* ─── OPERACIÓN 8: COBRO A CLIENTES ─────────────────────────
      Cobro parcial de la venta a crédito de la Operación 4.
@@ -1045,17 +1080,26 @@ function calcular() {
      · DEBE: 1101 Efectivo (entra dinero)
      · HABER: 1103 Cuentas por Cobrar (reduce el derecho de cobro)
      ──────────────────────────────────────────────────────────── */
-  const v8 = gv('f8');
-  if (v8 > 0) {
-    p++;
-    const rows = [
-      { code: 1101, side: 'd', amt: v8 },
-      { code: 1103, side: 'c', amt: v8, ind: true },
-    ];
-    reg(rows);
-    entries.push(mkEntry(p, 'Cobro a Clientes (efectivo)', rows, false));
-    ivaRows.push({ num:8, lbl:'Cobro a Clientes', base:0, cf:0, df:0, noIva:true });
-  }
+ const v8 = gv('f8'), i8 = swOn(8);
+if (v8 > 0) {
+  p++;
+  
+  // Si aplica IVA, calcularlo como porcentaje del total y restarlo
+  const cf = i8 ? v8 * IVA : 0;   /* Crédito Fiscal = base × 13% (a descontar) */
+  const base = v8 - cf;           /* Base sin IVA (total - crédito fiscal) */
+  
+  const rows = [
+    { code: 1101, side: 'd', amt: base },      /* Base sin IVA (cuentas por cobrar) */
+    ...(i8 ? [{ code: 1104, side: 'd', amt: cf }] : []),  /* IVA acreditable */
+    { code: 1103, side: 'c', amt: v8, ind: true },        /* Total original (clientes) */
+  ];
+  
+  reg(rows);
+  entries.push(mkEntry(p, 'Cobro a Clientes (efectivo)', rows, i8));
+  ivaRows.push({ num:8, lbl:'Cobro a Clientes', base:base, cf, df:0, noIva:!i8 });
+}
+
+
 
   /* ─── OPERACIÓN 9: GASTO DE PUBLICIDAD ──────────────────────
      Pago de pauta publicitaria en radio. Pago al contado.
@@ -1064,20 +1108,25 @@ function calcular() {
      · DEBE: 1104 IVA Crédito Fiscal
      · HABER: 1101 Efectivo (pago total con IVA)
      ──────────────────────────────────────────────────────────── */
-  const v9 = gv('f9'), i9 = swOn(9);
-  if (v9 > 0) {
-    p++;
-    const cf  = i9 ? v9 * IVA : 0;
-    const tot = v9 + cf;
-    const rows = [
-      { code: 5102, side: 'd', amt: v9 },
-      ...(i9 ? [{ code: 1104, side: 'd', amt: cf }] : []),
-      { code: 1101, side: 'c', amt: tot, ind: true },
-    ];
-    reg(rows);
-    entries.push(mkEntry(p, 'Gasto de Publicidad (radio)', rows, i9));
-    ivaRows.push({ num:9, lbl:'Gasto de Publicidad', base:v9, cf, df:0, noIva:!i9 });
-  }
+ const v9 = gv('f9'), i9 = swOn(9);
+if (v9 > 0) {
+  p++;
+  
+  // Si aplica IVA, calcularlo como porcentaje del total y restarlo
+  const cf = i9 ? v9 * IVA : 0;   /* Crédito Fiscal = base × 13% (a descontar) */
+  const base = v9 - cf;           /* Base sin IVA (total - crédito fiscal) */
+  
+  const rows = [
+    { code: 5102, side: 'd', amt: base },      /* Base sin IVA (publicidad) */
+    ...(i9 ? [{ code: 1104, side: 'd', amt: cf }] : []),  /* IVA a descontar */
+    { code: 1101, side: 'c', amt: v9, ind: true },        /* Total original */
+  ];
+  
+  reg(rows);
+  entries.push(mkEntry(p, 'Gasto de Publicidad (radio)', rows, i9));
+  ivaRows.push({ num:9, lbl:'Gasto de Publicidad', base:base, cf, df:0, noIva:!i9 });
+}
+
 
   /* ════════════════════════════════════════════════════════════
      CÁLCULO DE LIQUIDACIÓN DE IVA
